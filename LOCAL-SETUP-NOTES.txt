@@ -1,0 +1,182 @@
+QualityFriend Admin - Local Docker Setup Notes
+==============================================
+
+Final architecture
+------------------
+- Central Compose project: C:\laragon\www\app_qualityfriend\compose.yaml
+- Main App: qualityfriend-app, http://localhost:3000
+- Admin: qualityfriend-admin, http://localhost:3001
+- PostgreSQL: qualityfriend-postgres, postgres:5432 inside Docker and
+  localhost:5433 from Windows
+- Docker network: qualityfriend-local
+- Shared database: qualityfriend_dev
+- Both Next.js applications use the same private values from the Main App .env.
+- DATABASE_URL is server-only and is not prefixed with NEXT_PUBLIC_.
+- The Admin has persistent admin_node_modules and admin_next_cache volumes.
+- Windows development watching uses WATCHPACK_POLLING=true.
+
+Files created in the Admin project
+----------------------------------
+- Dockerfile
+- .dockerignore
+- database.ts
+- app\api\health\database\route.ts
+- LOCAL-SETUP-NOTES.txt
+
+Files modified
+--------------
+- Admin package.json
+- Admin package-lock.json
+- Main App compose.yaml (added only the Admin service and its two volumes)
+- Main App LOCAL-SETUP-NOTES.txt (documented the Admin addition)
+
+Packages installed
+------------------
+- pg (runtime dependency)
+- @types/pg (development dependency)
+
+Setup and verification commands executed
+----------------------------------------
+Commands were run from the indicated project directory. Secret values were
+never printed.
+
+Inspection and documentation:
+- Get-Content -Raw AGENTS.md
+- rg --files -g !node_modules
+- Get-Content -Raw package.json
+- Inspected C:\laragon\www\app_qualityfriend top-level files, compose.yaml,
+  Dockerfile, database.ts, health route, git status, and setup notes.
+- Read the installed Next.js 16.3.2 Route Handler, route.ts, runtime, and
+  environment-variable guides under node_modules\next\dist\docs.
+
+Package installation:
+- npm install pg
+  Initial PowerShell attempt was blocked because npm.ps1 scripts are disabled.
+- npm.cmd install pg
+  Initial sandbox attempt failed with registry/cache EACCES.
+- npm.cmd install pg (approved network/cache access; succeeded)
+- npm.cmd install --save-dev @types/pg (approved access; succeeded)
+
+Compose validation and setup:
+- docker compose --env-file C:\laragon\www\app_qualityfriend\.env
+  --project-directory C:\laragon\www\app_qualityfriend
+  -f .\compose.staged.yaml config --quiet
+- docker compose up -d --build --no-deps admin
+
+Admin code verification:
+- npm.cmd run lint (succeeded)
+- npm.cmd exec tsc -- --noEmit (succeeded)
+- npm.cmd run build
+  First sandboxed build could not download the starter Geist Google Fonts.
+- npm.cmd run build (approved network access; succeeded)
+
+Runtime verification:
+- docker compose ps
+- docker inspect qualityfriend-admin --format network-membership-template
+- docker compose logs --tail=80 admin
+- docker compose exec -T admin node -e <safe DATABASE_URL host/port/db check>
+- docker compose exec -T postgres sh -c <current database/server-time query>
+- Invoke-WebRequest http://localhost:3000
+- Invoke-WebRequest http://localhost:3000/api/health/database
+- Invoke-WebRequest http://localhost:3001
+- Invoke-WebRequest http://localhost:3001/api/health/database
+
+Container names, ports, and URLs
+--------------------------------
+- qualityfriend-app: host 3000 -> container 3000
+  http://localhost:3000
+  http://localhost:3000/api/health/database
+- qualityfriend-admin: host 3001 -> container 3000
+  http://localhost:3001
+  http://localhost:3001/api/health/database
+- qualityfriend-postgres: host 5433 -> container 5432
+
+Database and network details
+----------------------------
+- Database: qualityfriend_dev
+- Docker hostname/port: postgres:5432
+- Windows hostname/port: localhost:5433
+- Docker network: qualityfriend-local
+- Main App and Admin use the same DATABASE_URL expression and the same
+  qualityfriend_dev database. No second PostgreSQL service or database exists.
+
+pgAdmin connection details
+--------------------------
+Name: QualityFriend Local (or any preferred label)
+Host: localhost
+Port: 5433
+Maintenance database: qualityfriend_dev
+Username: value of POSTGRES_USER in C:\laragon\www\app_qualityfriend\.env
+Password: value of POSTGRES_PASSWORD in that private .env file
+
+Problems encountered and solutions
+-----------------------------------
+1. PowerShell blocked npm.ps1.
+   Used npm.cmd, the standard Windows command shim.
+
+2. Sandboxed npm registry/cache access failed with EACCES.
+   Re-ran the authorized package installation with approved access; both
+   packages installed and npm reported zero vulnerabilities.
+
+3. The first production build could not fetch the starter project's Geist
+   fonts from fonts.googleapis.com in the restricted sandbox.
+   Re-ran the build with approved network access; it compiled successfully.
+
+4. Docker npm ci was slow.
+   It completed successfully using the Admin service's explicit 1.1.1.1 and
+   8.8.8.8 DNS configuration; no Docker restart was required.
+
+Daily commands
+--------------
+Run these from C:\laragon\www\app_qualityfriend.
+
+Start all services:
+  docker compose up -d
+
+Stop all services without deleting database data:
+  docker compose down
+
+Build/recreate only Admin without touching dependencies:
+  docker compose up -d --build --no-deps admin
+
+Restart Admin after adding nested routes on a Windows bind mount:
+  docker compose restart admin
+
+Inspect status:
+  docker compose ps
+
+View Admin logs:
+  docker compose logs --tail=100 -f admin
+
+View Main App logs:
+  docker compose logs --tail=100 -f app
+
+View PostgreSQL logs:
+  docker compose logs --tail=100 -f postgres
+
+Verify endpoints in PowerShell:
+  Invoke-WebRequest -UseBasicParsing http://localhost:3000
+  Invoke-WebRequest -UseBasicParsing http://localhost:3000/api/health/database
+  Invoke-WebRequest -UseBasicParsing http://localhost:3001
+  Invoke-WebRequest -UseBasicParsing http://localhost:3001/api/health/database
+
+WARNING: Never run docker compose down -v for routine development. The -v flag
+deletes Compose volumes, including the persistent PostgreSQL data volume.
+
+Final verification results (2026-08-23 Asia/Karachi)
+----------------------------------------------------
+- qualityfriend-postgres: running and healthy
+- qualityfriend-app: running at port 3000
+- qualityfriend-admin: running at port 3001
+- Admin network membership: qualityfriend-local
+- Admin DATABASE_URL target: postgres:5432/qualityfriend_dev
+- http://localhost:3000: HTTP 200
+- Main App database health: HTTP 200, status connected,
+  database qualityfriend_dev, PostgreSQL serverTime returned
+- http://localhost:3001: HTTP 200
+- Admin database health: HTTP 200, status connected,
+  database qualityfriend_dev, PostgreSQL serverTime returned
+- Admin lint: passed
+- Admin TypeScript no-emit check: passed
+- Admin production build: passed; database health route is dynamic
+- Main App and Admin simultaneously share qualityfriend_dev successfully.
