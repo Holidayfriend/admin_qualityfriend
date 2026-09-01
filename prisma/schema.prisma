@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model SuperAdmin {
+  id           String    @id @db.Uuid
+  name         String
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  isActive     Boolean   @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+
+  @@map("super_admins")
+}
+
+enum HotelLanguage {
+  EN
+  DE
+  IT
+}
+
+enum UserRole {
+  EMPLOYEE
+  TEAM_LEAD
+  MANAGEMENT
+  ADMIN
+}
+
+model HotelTenant {
+  id               String        @id @db.Uuid
+  hotelNameEn      String        @map("hotel_name_en")
+  hotelNameDe      String        @map("hotel_name_de")
+  hotelNameIt      String        @map("hotel_name_it")
+  email            String
+  logoUrl          String?       @map("logo_url")
+  hotelLanguage    HotelLanguage @map("hotel_language")
+  isActive         Boolean       @map("is_active")
+  companyName      String        @map("company_name")
+  streetAddress    String        @map("street_address")
+  postalCode       String        @map("postal_code")
+  city             String
+  country          String
+  contactPerson    String        @map("contact_person")
+  phoneNumber      String?       @map("phone_number")
+  vatId            String?       @map("vat_id")
+  tripadvisorId    String?       @map("tripadvisor_id")
+  createdAt        DateTime      @map("created_at")
+  users            User[]
+
+  @@map("hotel_tenants")
+}
+
+model User {
+  id            String        @id @db.Uuid
+  hotelTenantId String        @map("hotel_tenant_id") @db.Uuid
+  firstName     String        @map("first_name")
+  lastName      String        @map("last_name")
+  email         String        @unique
+  passwordHash  String        @map("password_hash")
+  phoneNumber   String?       @map("phone_number")
+  language      HotelLanguage
+  role          UserRole
+  isActive      Boolean       @map("is_active")
+  isDeleted     Boolean       @map("is_deleted")
+  lastLoginAt   DateTime?     @map("last_login_at")
+  hotelTenant   HotelTenant   @relation(fields: [hotelTenantId], references: [id])
+
+  @@map("users")
+}
