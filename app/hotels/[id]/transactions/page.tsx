@@ -1,0 +1,18 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { AdminShell } from "../../../../components/admin-shell";
+import { requireAdmin } from "../../../../lib/auth/session";
+import { prisma } from "../../../../lib/prisma";
+
+const date = new Intl.DateTimeFormat("en", { dateStyle: "medium", timeStyle: "short" });
+const month = new Intl.DateTimeFormat("en", { month: "long", year: "numeric" });
+const money = (amount:number,currency:string) => new Intl.NumberFormat("en-IE",{style:"currency",currency}).format(amount);
+
+export default async function TransactionsPage({params}:{params:Promise<{id:string}>}){
+  const admin=await requireAdmin(),{id}=await params,hotel=await prisma.hotelTenant.findUnique({where:{id},select:{id:true,hotelNameEn:true,companyName:true}});if(!hotel)notFound();
+  const transactions=await prisma.paymentEvent.findMany({where:{hotelTenantId:id,eventType:{in:["PAYMENT.SALE.COMPLETED","PAYMENT.SALE.REFUNDED","PAYMENT.SALE.REVERSED"]}},orderBy:[{transactionAt:"desc"},{createdAt:"desc"}]});
+  const groups=new Map<string,typeof transactions>();for(const transaction of transactions){const key=month.format(transaction.transactionAt||transaction.createdAt);groups.set(key,[...(groups.get(key)||[]),transaction])}
+  const total=transactions.filter(t=>t.eventType==="PAYMENT.SALE.COMPLETED").reduce((sum,t)=>sum+Number(t.amount||0),0);
+  return <AdminShell name={admin.name}><main className="p-5 lg:p-7"><Link href={`/hotels/${id}`} className="text-xs text-[var(--muted)]">← Hotel details</Link><div className="mt-4"><h1 className="text-2xl font-bold">Transactions</h1><p className="text-sm text-[var(--muted)]">{hotel.hotelNameEn} · {hotel.companyName}</p></div><div className="mt-6 grid gap-4 sm:grid-cols-3"><Card title="Completed payments" value={String(transactions.filter(t=>t.eventType==="PAYMENT.SALE.COMPLETED").length)}/><Card title="Total received" value={money(total,"EUR")}/><Card title="Months recorded" value={String(groups.size)}/></div>{groups.size?[...groups].map(([label,items])=><section key={label} className="mt-6 overflow-x-auto rounded-xl border bg-white"><div className="flex items-center justify-between border-b p-5"><h2 className="font-bold">{label}</h2><span className="text-sm font-bold text-green-700">{money(items.filter(i=>i.eventType==="PAYMENT.SALE.COMPLETED").reduce((sum,i)=>sum+Number(i.amount||0),0),"EUR")}</span></div><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-[#f8f7f5] text-xs text-[var(--muted)]"><tr><th className="p-4">Date</th><th>Transaction ID</th><th>Type</th><th>Status</th><th className="text-right">Amount</th></tr></thead><tbody>{items.map(item=><tr key={item.id} className="border-t"><td className="p-4">{date.format(item.transactionAt||item.createdAt)}</td><td className="font-mono text-xs">{item.providerTransactionId||"—"}</td><td>PayPal subscription</td><td><span className={`rounded-full px-2 py-1 text-xs font-bold ${item.eventType==="PAYMENT.SALE.COMPLETED"?"bg-green-50 text-green-700":"bg-red-50 text-red-700"}`}>{item.eventType.split(".").at(-1)}</span></td><td className="text-right font-bold">{item.amount?money(Number(item.amount),item.currencyCode||"EUR"):"—"}</td></tr>)}</tbody></table></section>):<section className="mt-6 rounded-xl border bg-white p-10 text-center"><p className="font-semibold">No transactions yet</p><p className="mt-1 text-sm text-[var(--muted)]">Verified PayPal payments will appear after the production webhook is connected.</p></section>}</main></AdminShell>;
+}
+function Card({title,value}:{title:string;value:string}){return <div className="rounded-xl border bg-white p-5"><p className="text-xs text-[var(--muted)]">{title}</p><b className="mt-2 block text-2xl">{value}</b></div>}

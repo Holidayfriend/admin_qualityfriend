@@ -35,6 +35,15 @@ enum PaymentProvider {
   PAYPAL
 }
 
+enum SubscriptionStatus {
+  PENDING
+  APPROVAL_PENDING
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
 model BillingConfiguration {
   id           String          @id @db.VarChar(32)
   provider     PaymentProvider @default(PAYPAL)
@@ -69,10 +78,35 @@ model HotelTenant {
   phoneNumber      String?       @map("phone_number")
   vatId            String?       @map("vat_id")
   tripadvisorId    String?       @map("tripadvisor_id")
+  subscriptionStatus SubscriptionStatus @map("subscription_status")
+  paypalSubscriptionId String?   @map("paypal_subscription_id")
+  paypalPlanId     String?       @map("paypal_plan_id")
+  subscriptionStartedAt DateTime? @map("subscription_started_at")
+  subscriptionCurrentPeriodEnd DateTime? @map("subscription_current_period_end")
+  subscriptionCancelledAt DateTime? @map("subscription_cancelled_at")
   createdAt        DateTime      @map("created_at")
   users            User[]
+  paymentEvents    PaymentEvent[]
 
   @@map("hotel_tenants")
+}
+
+model PaymentEvent {
+  id                    String          @id @db.Uuid
+  provider              PaymentProvider
+  providerEventId       String          @unique @map("provider_event_id")
+  eventType             String          @map("event_type")
+  providerTransactionId String?         @map("provider_transaction_id")
+  amount                Decimal?        @db.Decimal(12, 2)
+  currencyCode          String?         @map("currency_code")
+  transactionAt         DateTime?       @map("transaction_at")
+  hotelTenantId         String?         @map("hotel_tenant_id") @db.Uuid
+  payload               Json
+  processedAt           DateTime?       @map("processed_at")
+  createdAt             DateTime        @map("created_at")
+  hotelTenant           HotelTenant?    @relation(fields: [hotelTenantId], references: [id])
+
+  @@map("payment_events")
 }
 
 model User {
