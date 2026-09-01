@@ -31,6 +31,26 @@ enum UserRole {
   ADMIN
 }
 
+enum PaymentProvider {
+  PAYPAL
+}
+
+model BillingConfiguration {
+  id           String          @id @db.VarChar(32)
+  provider     PaymentProvider @default(PAYPAL)
+  environment  String          @default("sandbox") @db.VarChar(16)
+  productId    String?         @map("product_id") @db.VarChar(128)
+  planId       String?         @map("plan_id") @db.VarChar(128)
+  productName  String          @map("product_name") @db.VarChar(127)
+  planName     String          @map("plan_name") @db.VarChar(127)
+  currencyCode String          @map("currency_code") @db.VarChar(3)
+  monthlyPrice Decimal         @map("monthly_price") @db.Decimal(10, 2)
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  @@map("billing_configurations")
+}
+
 model HotelTenant {
   id               String        @id @db.Uuid
   hotelNameEn      String        @map("hotel_name_en")
