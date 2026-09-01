@@ -42,6 +42,7 @@ enum SubscriptionStatus {
   SUSPENDED
   CANCELLED
   EXPIRED
+  COMPED
 }
 
 model BillingConfiguration {
@@ -87,8 +88,38 @@ model HotelTenant {
   createdAt        DateTime      @map("created_at")
   users            User[]
   paymentEvents    PaymentEvent[]
+  couponRedemptions CouponRedemption[]
 
   @@map("hotel_tenants")
+}
+
+model Coupon {
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique
+  percentOff Int @map("percent_off")
+  maxRedemptions Int? @map("max_redemptions")
+  redemptionCount Int @default(0) @map("redemption_count")
+  expiresAt DateTime? @map("expires_at")
+  isActive Boolean @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  redemptions CouponRedemption[]
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id String @id @db.Uuid
+  couponId String @map("coupon_id") @db.Uuid
+  hotelTenantId String @unique @map("hotel_tenant_id") @db.Uuid
+  originalAmount Decimal @map("original_amount")
+  discountedAmount Decimal @map("discounted_amount")
+  currencyCode String @map("currency_code")
+  paypalSubscriptionId String? @map("paypal_subscription_id")
+  redeemedAt DateTime @map("redeemed_at")
+  coupon Coupon @relation(fields:[couponId],references:[id])
+  hotelTenant HotelTenant @relation(fields:[hotelTenantId],references:[id])
+  @@unique([couponId,hotelTenantId])
+  @@map("coupon_redemptions")
 }
 
 model PaymentEvent {
