@@ -1,1 +1,25 @@
-import"server-only";import{PrismaPg}from"@prisma/adapter-pg";import{PrismaClient}from"../app/generated/prisma/client";const g=globalThis as typeof globalThis&{p?:PrismaClient};const url=process.env.DATABASE_URL;if(!url)throw new Error("DATABASE_URL is missing");export const prisma=g.p??new PrismaClient({adapter:new PrismaPg({connectionString:url})});if(process.env.NODE_ENV!=="production")g.p=prisma;
+import "server-only";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../app/generated/prisma/client";
+
+const globalForPrisma = globalThis as typeof globalThis & { qualityfriendAdminPrisma?: PrismaClient };
+
+function createClient() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL is missing");
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+}
+
+function getPrisma() {
+  if (!globalForPrisma.qualityfriendAdminPrisma) globalForPrisma.qualityfriendAdminPrisma = createClient();
+  return globalForPrisma.qualityfriendAdminPrisma;
+}
+
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, property, receiver) {
+    const client = getPrisma();
+    const value = Reflect.get(client, property, receiver);
+    if (typeof value === "function") return value.bind(client);
+    return value;
+  },
+});
