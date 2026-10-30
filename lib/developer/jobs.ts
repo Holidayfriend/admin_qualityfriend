@@ -4,25 +4,49 @@ import { randomUUID } from "node:crypto";
 
 const globalJobs = globalThis as typeof globalThis & { developerPool?: Pool };
 const pool = globalJobs.developerPool ??= new Pool({ connectionString: process.env.DATABASE_URL, max: 3 });
+
+export function queueFailureMessage(output: unknown) {
+  if (!output || typeof output !== "object") return "";
+  const record = output as Record<string, unknown>;
+  if (typeof record.message === "string" && record.message.trim()) return record.message.trim();
+  const value = record.value;
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (value && typeof value === "object") {
+    const message = (value as Record<string, unknown>).message;
+    if (typeof message === "string" && message.trim()) return message.trim();
+  }
+  return "";
+}
+
+function failureReason(row: { error_summary?: string | null; index_error?: string | null; output?: unknown }) {
+  return row.error_summary?.trim() || row.index_error?.trim() || queueFailureMessage(row.output) || null;
+}
+
 export async function listJobs(state: string, page: number) {
   const filter = ["created","retry","active","completed","failed","cancelled"].includes(state) ? state : null;
   const [jobs, counts] = await Promise.all([
     pool.query(`SELECT j.id,j.name,j.state,j.retry_count,j.retry_limit,j.created_on,j.started_on,j.completed_on,
       j.start_after,j.output,j.data->>'hotelTenantId' AS hotel_id,h.hotel_name_en AS hotel,
-      r.status AS import_status,r.records_read,r.records_created,r.records_updated,r.error_summary
+      r.status AS import_status,r.records_read,r.records_created,r.records_updated,r.error_summary,
+      md.index_error
       FROM pgboss.job j LEFT JOIN hotel_tenants h ON h.id::text=j.data->>'hotelTenantId'
       LEFT JOIN import_runs r ON r.id::text=j.data->>'runId' AND r.hotel_tenant_id=h.id
+      LEFT JOIN manual_documents md ON md.id::text=j.data->>'documentId' AND md.hotel_tenant_id::text=j.data->>'hotelTenantId'
       WHERE ($1::text IS NULL OR j.state::text=$1) ORDER BY j.created_on DESC,j.id LIMIT 50 OFFSET $2`,[filter,(page-1)*50]),
     pool.query("SELECT state,count(*)::int AS count FROM pgboss.job GROUP BY state"),
   ]);
-  return {jobs:jobs.rows,counts:counts.rows,page};
+  return {jobs:jobs.rows.map((row) => ({...row, failure_reason: failureReason(row)})),counts:counts.rows,page};
 }
 export async function jobLogs(id: string, name: string) {
-  const job = await pool.query("SELECT data->>'runId' AS run_id,data->>'hotelTenantId' AS hotel_id,output FROM pgboss.job WHERE id=$1 AND name=$2",[id,name]);
+  const job = await pool.query(`SELECT j.data->>'runId' AS run_id,j.data->>'hotelTenantId' AS hotel_id,j.data->>'documentId' AS document_id,j.output,
+    md.index_error
+    FROM pgboss.job j
+    LEFT JOIN manual_documents md ON md.id::text=j.data->>'documentId' AND md.hotel_tenant_id::text=j.data->>'hotelTenantId'
+    WHERE j.id=$1 AND j.name=$2`,[id,name]);
   if(!job.rows[0])return null;
   const logs = await pool.query(`SELECT id,action,description,changes,created_at FROM audit_logs
     WHERE entity_id::text=$1 AND hotel_tenant_id::text=$2 ORDER BY created_at DESC LIMIT 100`,[job.rows[0].run_id??id,job.rows[0].hotel_id]);
-  return {logs:logs.rows,output:job.rows[0].output};
+  return {failure_reason:failureReason(job.rows[0]),logs:logs.rows,output:job.rows[0].output};
 }
 
 export async function manageJob(id:string,name:string,action:"retry"|"delete",adminId:string) {
