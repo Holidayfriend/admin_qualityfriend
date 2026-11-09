@@ -79,6 +79,8 @@ model HotelTenant {
   phoneNumber      String?       @map("phone_number")
   vatId            String?       @map("vat_id")
   tripadvisorId    String?       @map("tripadvisor_id")
+  activeMcp        Boolean       @map("active_mcp")
+  mcpHotelId       String?       @map("mcp_hotel_id")
   subscriptionStatus SubscriptionStatus @map("subscription_status")
   paypalSubscriptionId String?   @map("paypal_subscription_id")
   paypalPlanId     String?       @map("paypal_plan_id")
