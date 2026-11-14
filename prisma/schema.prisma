@@ -87,6 +87,9 @@ model HotelTenant {
   tripadvisorId    String?       @map("tripadvisor_id")
   activeMcp        Boolean       @map("active_mcp")
   mcpHotelId       String?       @map("mcp_hotel_id")
+  mcpUserEmail     String?       @map("mcp_user_email")
+  mcpUserPassword  String?       @map("mcp_user_password")
+  mcpUserDepartment String?      @map("mcp_user_department")
   subscriptionStatus SubscriptionStatus @map("subscription_status")
   creationSource   HotelCreationSource @default(PUBLIC) @map("creation_source")
   paypalSubscriptionId String?   @map("paypal_subscription_id")
@@ -153,6 +156,9 @@ model PaymentEvent {
 model User {
   id            String        @id @db.Uuid
   hotelTenantId String        @map("hotel_tenant_id") @db.Uuid
+  mcpUserId     String?       @map("mcp_user_id")
+  mcpUserEmail  String?       @map("mcp_user_email")
+  mcpUserPassword String?     @map("mcp_user_password")
   firstName     String        @map("first_name")
   lastName      String        @map("last_name")
   email         String        @unique

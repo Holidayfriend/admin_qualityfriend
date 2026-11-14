@@ -63,8 +63,8 @@ export default async function HotelPage({ params, searchParams }: { params: Prom
         <section className="mt-6 overflow-x-auto rounded-xl border bg-white">
           <h2 className="p-5 font-bold">Users ({hotel.users.length})</h2>
           <table className="w-full min-w-[680px] text-left text-sm">
-            <thead className="bg-[#f8f7f5] text-xs text-[var(--muted)]"><tr><th className="p-4">User</th><th>Email</th><th>Role</th><th>Language</th><th>Status</th><th>Last login</th></tr></thead>
-            <tbody>{hotel.users.map((user) => <tr key={user.id} className="border-t"><td className="p-4 font-semibold">{user.firstName} {user.lastName}</td><td>{user.email}</td><td>{user.hotelRole.nameEn}</td><td>{user.language}</td><td>{user.isActive ? "Active" : "Inactive"}</td><td>{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td></tr>)}</tbody>
+            <thead className="bg-[#f8f7f5] text-xs text-[var(--muted)]"><tr><th className="p-4">User</th><th>Email</th><th>Role</th><th>Language</th><th>Status</th><th>Last login</th><th /></tr></thead>
+            <tbody>{hotel.users.map((user) => <tr key={user.id} className="border-t"><td className="p-4 font-semibold">{user.firstName} {user.lastName}</td><td>{user.email}</td><td>{user.hotelRole.nameEn}</td><td>{user.language}</td><td>{user.isActive ? "Active" : "Inactive"}</td><td>{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td><td className="pr-4 text-right"><Link href={`/hotels/${hotel.id}/users/${user.id}`} className="font-semibold text-[var(--accent)]">MCP login</Link></td></tr>)}</tbody>
           </table>
         </section>
       </main>
