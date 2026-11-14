@@ -45,6 +45,11 @@ enum SubscriptionStatus {
   COMPED
 }
 
+enum HotelCreationSource {
+  PUBLIC
+  ADMIN
+}
+
 model BillingConfiguration {
   id           String          @id @db.VarChar(32)
   provider     PaymentProvider @default(PAYPAL)
@@ -75,6 +80,7 @@ model HotelTenant {
   postalCode       String        @map("postal_code")
   city             String
   country          String
+  province         String?       @map("province")
   contactPerson    String        @map("contact_person")
   phoneNumber      String?       @map("phone_number")
   vatId            String?       @map("vat_id")
@@ -82,12 +88,14 @@ model HotelTenant {
   activeMcp        Boolean       @map("active_mcp")
   mcpHotelId       String?       @map("mcp_hotel_id")
   subscriptionStatus SubscriptionStatus @map("subscription_status")
+  creationSource   HotelCreationSource @default(PUBLIC) @map("creation_source")
   paypalSubscriptionId String?   @map("paypal_subscription_id")
   paypalPlanId     String?       @map("paypal_plan_id")
   subscriptionStartedAt DateTime? @map("subscription_started_at")
   subscriptionCurrentPeriodEnd DateTime? @map("subscription_current_period_end")
   subscriptionCancelledAt DateTime? @map("subscription_cancelled_at")
   createdAt        DateTime      @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
   users            User[]
   paymentEvents    PaymentEvent[]
   couponRedemptions CouponRedemption[]
@@ -156,6 +164,8 @@ model User {
   isActive      Boolean       @map("is_active")
   isDeleted     Boolean       @map("is_deleted")
   lastLoginAt   DateTime?     @map("last_login_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
   hotelTenant   HotelTenant   @relation(fields: [hotelTenantId], references: [id])
 
   @@map("users")
@@ -168,6 +178,7 @@ model HotelRole {
   nameEn        String @map("name_en") @db.VarChar(180)
   nameDe        String @map("name_de") @db.VarChar(180)
   nameIt        String @map("name_it") @db.VarChar(180)
+  isSystem      Boolean @default(false) @map("is_system")
   users         User[]
 
   @@id([hotelTenantId, key])
